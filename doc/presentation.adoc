@@ -1,0 +1,92 @@
+= Configurations and how to handle them
+Vegard Sandengen
+
+One can identify two domains of configuration which are split as follows
+
+* End-user configuring their standardized product.
+* System implementors utilizing end-user configuration to run internal mechanisms.
+
+The following sections will cover these independantly.
+
+== End-user configuration
+
+.Dictionary
+[horizontal]
+configuration entry:: A unit of related configuration key-value pairs, optionally organized in
+one or more sections which may contain key-value pairs and nested sections.
+key-value:: A key identified by a unique name within its section, holding a value of
+a specified type. Values include booleans, integers, floats, enums and strings. The values
+may have restrictions in-place which limits valid content.
+section:: A group of key-value pairs and possibly other sections within, nested into oblivion.
+
+
+The end-user configurations shall comply with the following conditions:
+
+* System shall function completely without the presence of any end-user configurations.
+* User shall be able to perform a factory reset by removing all end-user configurations.
+* System shall not provide any end-user configuration.
+* End-user configuration shall be separated from the underlying implementation.
+* System shall define all valid configuration entries with their definition.
+* User shall be able to update their end-user configurations through system upgrade
+(which may lead to updated definitions of configuration entries.)
+* User shall be able to export and import end-user configurations.
+* User shall be able to back-up end-user configurations at timely intervals.
+* User shall be able to restore end-user configurations from backups.
+* System shall make available all possible configuration entries through a visual, guided interface.
+* User shall be able to add, remove and update configuration entries through this visual interface.
+
+.Diagram of the end-user configuration architecture proposal.
+image::end_user_configuration.png[]
+
+== System implementation of configuration files.
+
+NOTE: All implementation specific details are work-in-progress. Everything
+noted here are mere suggestions.
+
+* System shall _never_ make mplug configurations available for the end-user.
+These configuration formats are considered internal and the user shall be oblivious to their
+existence.
+** Reasoning: The mplug configurations are tightly coupled with the code running. They have evolved
+through years of addition and modification without cleaning them up in fear of ruining the existing
+configuration files already in use by multiple customers.
+** In addition to that, subsystems combining
+multiple mplugs burden the configuration file with the complexity. Example: distribution subsystem
+with three output protocols, each implemented by one mplug each: A, B and C. To distribute on
+protocol C, the configuration file must set the following variables:
+ABypass = true, BBypass = true, CBypass = false. This is an unnecceary burden on the end-user
+when all they want is to distribute on protocol C.
+
+* System shall provide a per definition _unsupported_ mechanism to supersede mplug configuration
+file parameters.
+** All superseding rules are denoted in one file: `/home/meos/.overrides/unsupported.toml`
+** This mechanism is in place to allow KSPT to provide the customer with a hotfix to patch
+functionality not yet made available as an end-user configuration.
+** This superseding of mplug parameters is regarded as unsupported as we will not make any
+guarantee that this parameter exists between _any_ version of the system.
+* System shall use files located under `/home/meos/.overrides/` instead of their equivalent
+under `/etc/meos`, (with the basename for both directories stripped).
+This allows us to have flexibility in implementation of the system.
+** Maybe this shall be restricted to additions and overrides for specific file types,
+for instance mission definitions files.
+* System shall only utilize runtime generated configuration files. No install provided nor end-user
+configurations shall be used at runtime.
+* System shall provide a generate runtime configurations utility. Once ran, these
+configurations are operational until next time this utility is invoked.
+** Configuration files created at generation time is dumped in `/run/meos/configs/static`
+*** While the utility is running, all files are intermediately stored in `/run/meos/configs/staging`
+** Runtime auxiliary files used as intermediate configuration files shall be placed in
+`/run/meos/configs/dynamic`.
+* Gathering and generating runtime configuration files shall be issued by lexiographically ordered
+entries in `/usr/share/meos/generator.d`
+** Each entry describe what shall be performed and what consequences an update entails.
+** Operation may be to copy all files from one directory into the run directory, consulting the
+override directory first. (may also just copy the
+** Another operation may be to query for specific end-user configurations and generate
+configuration files to run directory.
+** Utility will check if file already exists in the run directory, and if checksum matches,
+the consequences clause will not be checked.
+** A consequence may be that the middleware needs to be restarted.
+
+
+.Diagram of the system configuration architecture proposal.
+image::system_configuration.png[]
